@@ -347,16 +347,29 @@ class IptablesManager(object):
                                       '-j neutron-postrouting-bottom',
                                       wrap=False)
 
+            #(*)chain of PREROUTING chain   my code
+            self.ipv4['nat'].add_chain('neutron-prerouting-bottom',
+                                       wrap=False)
+            self.ipv4['nat'].add_rule('PREROUTING',
+                                      '-j neutron-prerouting-bottom',
+                                      wrap=False)
+
             # We add a snat chain to the shared neutron-postrouting-bottom
             # chain so that it's applied last.
             self.ipv4['nat'].add_chain('snat')
             self.ipv4['nat'].add_rule('neutron-postrouting-bottom',
                                       '-j $snat', wrap=False)
-
+            #(*)we add a dnat chain to port-mapping   my code
+            self.ipv4['nat'].add_chain('dnat')
+            self.ipv4['nat'].add_rule('neutron-prerouting-bottom',
+                                      '-j $dnat', wrap=False)
             # And then we add a float-snat chain and jump to first thing in
             # the snat chain.
             self.ipv4['nat'].add_chain('float-snat')
             self.ipv4['nat'].add_rule('snat', '-j $float-snat')
+            # (*) And add a chain and rule   my code
+            self.ipv4['nat'].add_chain('mapping-dnat')
+            self.ipv4['nat'].add_rule('dnat', '-j $mapping-dnat')
 
     def is_chain_empty(self, table, chain, ip_version=4, wrap=True):
         try:

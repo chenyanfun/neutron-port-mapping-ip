@@ -1036,6 +1036,30 @@ class L3NATAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback,
                     break
         iptables_manager.apply()
 
+    # handle port-mapping_ip  my code
+    def _handle_router_port_mapping_ip_nat_rules(self, ri, ex_gw_port, internal_cidrs, interface_name, action):
+        # remove all the rules
+        # This is
+        #
+        #
+        ri.iptables_manager.ipv4['nat'].empty_chain('PREROUTING')
+        ri.iptables_manager.ipv4['nat'].empty_chain('dnat')
+        ri.iptables_manager.ipv4['nat'].add_rule('dnat', '-j $mapping-dnat')
+
+        # And add them back if the action is add_rules
+        if action == 'add_rules' and ex_gw_port:
+            for ip_addr in ex_gw_port['mapping_ips']:
+                ex_gw_ip = ip_addr['ip_address']
+                if netaddr.IPAddress(ex_ge_ip).version == 4:
+                    ##
+                    rules = self.external_gateway_nat_rules(ex_gw_ip,
+                                                            internal_cidrs,
+                                                            interface_name)
+                    for rule in rules:
+                        iptables_manager.ipv4['nat'].add_rule(*rule)
+                    break
+        ri.iptables_manager.apply()
+
     def _handle_router_fip_nat_rules(self, ri, interface_name, action):
         """Configures NAT rules for Floating IPs for DVR.
 
@@ -1076,6 +1100,23 @@ class L3NATAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback,
             for chain, rule in self.floating_forward_rules(fip_ip, fixed):
                 ri.iptables_manager.ipv4['nat'].add_rule(chain, rule,
                                                          tag='floating_ip')
+
+        ri.iptables_manager.apply()
+
+    # activate my code
+    def process_router_port_mapping_ip_nat_rules(self, ri):
+        # configure nat rules for the router's port-mapping
+        # clear all iptables rules in routes fot port-mapping
+        ri.iptables_manager.ipv4['nat'].clear_rules_by_tag('port-mapping')
+
+        ri.internal_ports = self.process_router_floating_ip_addresses
+
+        for mip in port - mapping:
+            fixed = mip['fixed_ip_address']
+            mip_ip = mip['port_mapping_ip_address']
+            for chain, rule in self.port - mapping_forward_rules(fip_ip, fixed):
+                ri.iptables_manager.ipv4['nat'].add_rule(chain, rule,
+                                                         tag='port-mapping')
 
         ri.iptables_manager.apply()
 
